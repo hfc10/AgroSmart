@@ -20,9 +20,10 @@ AgroSmart/
 ├── backend/
 │   ├── main.py           # API FastAPI — bridge HTTP↔MQTT + consulta clima
 │   ├── requirements.txt  # Dependências Python
-│   └── .env              # Modelo de variáveis de ambiente
+│   └── .env.example      # Modelo de variáveis de ambiente
 ├── mobile-app/
 │   └── index.html        # App mobile web — painel de controle MQTT
+├── .gitignore
 ├── diagram.json          # Circuito Wokwi (ESP32 + DHT22 + Potenciômetro + LED)
 ├── platformio.ini        # Configuração PlatformIO
 ├── wokwi.toml            # Configuração da simulação Wokwi

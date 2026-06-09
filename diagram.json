@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "editor": "wokwi",
+  "parts": [
+    { "type": "board-esp32-devkit-c-v4", "id": "esp1", "top": 210, "left": 110, "attrs": {} },
+    { "type": "wokwi-dht22", "id": "dht1", "top": 90, "left": 260, "attrs": {} },
+    {
+      "type": "wokwi-slide-potentiometer",
+      "id": "pot1",
+      "top": 60,
+      "left": 10,
+      "attrs": { "travelLength": "30" }
+    },
+    { "type": "wokwi-led", "id": "led1", "top": 310, "left": 10, "attrs": { "color": "blue" } },
+    { "type": "wokwi-resistor", "id": "r1", "top": 350, "left": 80, "attrs": { "value": "220" } }
+  ],
+  "connections": [
+    [ "dht1:VCC", "esp1:3V3", "red", [ "v0" ] ],
+    [ "dht1:GND", "esp1:GND", "black", [ "v0" ] ],
+    [ "dht1:SDA", "esp1:15", "green", [ "v0" ] ],
+    [ "pot1:VCC", "esp1:3V3", "red", [ "v0" ] ],
+    [ "pot1:GND", "esp1:GND", "black", [ "v0" ] ],
+    [ "pot1:SIG", "esp1:34", "yellow", [ "v0" ] ],
+    [ "led1:A", "esp1:2", "blue", [ "v0" ] ],
+    [ "led1:C", "r1:1", "green", [ "v0" ] ],
+    [ "r1:2", "esp1:GND", "black", [ "v0" ] ]
+  ],
+  "dependencies": {}
+}

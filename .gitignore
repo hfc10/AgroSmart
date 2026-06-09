@@ -1,0 +1,20 @@
+# ── PlatformIO ────────────────────────────────────────────
+.pio/
+lib/.dependencies/
+
+# ── IDE / Editor ──────────────────────────────────────────
+.vscode/
+*.code-workspace
+.idea/
+
+# ── Python / Backend ──────────────────────────────────────
+backend/.env          # NUNCA subir — contém chave de API real
+backend/__pycache__/
+backend/*.pyc
+backend/.venv/
+venv/
+__pycache__/
+
+# ── Sistema Operacional ───────────────────────────────────
+.DS_Store
+Thumbs.db

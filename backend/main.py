@@ -283,7 +283,7 @@ async def get_decisao():
         if vai_chover:
             decisao = "AGUARDAR"
             motivo  = f"Solo seco ({solo:.0f}%), mas chuva prevista. Economizando água."
-            acao    = None
+            acao    = "DESLIGAR"
         else:
             decisao = "IRRIGAR"
             motivo  = f"Solo seco ({solo:.0f}%) e sem chuva prevista. Ativando irrigação."
@@ -291,7 +291,7 @@ async def get_decisao():
     else:
         decisao = "SOLO_ADEQUADO"
         motivo  = f"Umidade do solo em {solo:.0f}% — dentro do nível ideal."
-        acao    = None
+        acao    = "DESLIGAR"
 
     return {
         "decisao":         decisao,

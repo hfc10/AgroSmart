@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AgroSmart — Painel de Controle</title>
+  <style>
+    /* ── Reset & Base ─────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #0d1f0f;
+      --surface:   #152b17;
+      --surface2:  #1e3d21;
+      --green:     #4ade80;
+      --green-dim: #22c55e;
+      --text:      #e2e8e2;
+      --text-muted:#8faa91;
+      --red:       #f87171;
+      --yellow:    #fbbf24;
+      --radius:    14px;
+      --gap:       16px;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 0 0 32px;
+    }
+
+    /* ── Header ───────────────────────────────────────────────────── */
+    header {
+      background: var(--surface);
+      padding: 18px 20px 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid #2a4a2d;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    .logo { font-size: 22px; font-weight: 800; letter-spacing: -0.5px; }
+    .logo span { color: var(--green); }
+    .mqtt-badge {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 4px 10px;
+      border-radius: 20px;
+      background: #1e3d21;
+      border: 1px solid #2a5e2e;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .mqtt-badge .dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--red);
+      transition: background 0.4s;
+    }
+    .mqtt-badge .dot.online { background: var(--green); box-shadow: 0 0 6px var(--green); }
+
+    /* ── Main Layout ──────────────────────────────────────────────── */
+    main { padding: var(--gap); max-width: 480px; margin: 0 auto; }
+
+    /* ── Section title ────────────────────────────────────────────── */
+    .section-title {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 1.2px;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin: 24px 0 10px;
+    }
+
+    /* ── Cards ────────────────────────────────────────────────────── */
+    .card {
+      background: var(--surface);
+      border-radius: var(--radius);
+      padding: 18px 20px;
+      border: 1px solid #243e27;
+    }
+    .cards-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--gap);
+    }
+
+    /* ── Sensor Card ──────────────────────────────────────────────── */
+    .sensor-card {
+      background: var(--surface);
+      border-radius: var(--radius);
+      padding: 18px;
+      border: 1px solid #243e27;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .sensor-icon { font-size: 24px; }
+    .sensor-label { font-size: 11px; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.8px; }
+    .sensor-value { font-size: 36px; font-weight: 800; color: var(--green); line-height: 1; }
+    .sensor-value.warn { color: var(--yellow); }
+    .sensor-value.crit { color: var(--red); }
+    .sensor-unit { font-size: 14px; font-weight: 400; color: var(--text-muted); }
+    .sensor-source { font-size: 11px; color: var(--text-muted); min-height: 14px; }
+    .source-select {
+      width: 100%;
+      background: var(--surface2);
+      border: 1px solid #2a4a2d;
+      border-radius: 8px;
+      color: var(--text);
+      font-size: 12px;
+      padding: 8px 10px;
+      outline: none;
+    }
+    .source-select:focus { border-color: var(--green-dim); }
+
+    /* ── Gauge bar ────────────────────────────────────────────────── */
+    .gauge-track {
+      height: 6px;
+      background: var(--surface2);
+      border-radius: 3px;
+      overflow: hidden;
+      margin-top: 4px;
+    }
+    .gauge-fill {
+      height: 100%;
+      border-radius: 3px;
+      background: var(--green);
+      transition: width 0.6s ease, background 0.4s;
+      width: 0%;
+    }
+
+    /* ── Decision card ────────────────────────────────────────────── */
+    .decision-card {
+      border-radius: var(--radius);
+      padding: 20px;
+      border: 1px solid;
+      display: flex;
+      gap: 16px;
+      align-items: flex-start;
+    }
+    .decision-card.irrigar  { background: #0f2d1a; border-color: #1e6b35; }
+    .decision-card.aguardar { background: #2a1f00; border-color: #6b5000; }
+    .decision-card.ok       { background: #0f2333; border-color: #1e4d6b; }
+    .decision-card.waiting  { background: var(--surface); border-color: #243e27; }
+    .decision-icon { font-size: 28px; flex-shrink: 0; margin-top: 2px; }
+    .decision-title { font-size: 16px; font-weight: 700; margin-bottom: 4px; }
+    .decision-text { font-size: 13px; color: var(--text-muted); line-height: 1.5; }
+
+    /* ── Pump control ─────────────────────────────────────────────── */
+    .pump-card {
+      background: var(--surface);
+      border-radius: var(--radius);
+      padding: 20px;
+      border: 1px solid #243e27;
+    }
+    .pump-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+    .pump-status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 14px;
+      font-weight: 600;
+    }
+    .pump-dot {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      background: var(--text-muted);
+      transition: background 0.4s;
+    }
+    .pump-dot.on { background: var(--green); box-shadow: 0 0 8px var(--green); }
+    .pump-dot.off { background: var(--red); }
+    .pump-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .btn {
+      padding: 14px;
+      border-radius: 10px;
+      font-size: 15px;
+      font-weight: 700;
+      border: none;
+      cursor: pointer;
+      transition: opacity 0.15s, transform 0.1s;
+      letter-spacing: 0.3px;
+    }
+    .btn:active { transform: scale(0.97); }
+    .btn:disabled { opacity: 0.35; cursor: not-allowed; transform: none; }
+    .btn-on  { background: var(--green);  color: #0a1a0b; }
+    .btn-off { background: var(--red);    color: #fff; }
+
+    /* ── Mode toggle ──────────────────────────────────────────────── */
+    .mode-card {
+      background: var(--surface);
+      border-radius: var(--radius);
+      padding: 18px 20px;
+      border: 1px solid #243e27;
+    }
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 12px;
+    }
+    .toggle-label { font-size: 14px; color: var(--text-muted); }
+    .toggle-label strong { color: var(--text); display: block; font-size: 15px; }
+    .toggle {
+      position: relative;
+      width: 52px; height: 28px;
+    }
+    .toggle input { opacity: 0; width: 0; height: 0; }
+    .slider {
+      position: absolute;
+      inset: 0;
+      background: #2a3d2c;
+      border-radius: 28px;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+    .slider::before {
+      content: '';
+      position: absolute;
+      width: 20px; height: 20px;
+      left: 4px; bottom: 4px;
+      background: var(--text-muted);
+      border-radius: 50%;
+      transition: transform 0.3s, background 0.3s;
+    }
+    input:checked + .slider { background: #1a4d22; }
+    input:checked + .slider::before { transform: translateX(24px); background: var(--green); }
+
+    /* ── Config card ──────────────────────────────────────────────── */
+    .config-card {
+      background: var(--surface);
+      border-radius: var(--radius);
+      padding: 18px 20px;
+      border: 1px solid #243e27;
+    }
+    .config-card p { font-size: 13px; color: var(--text-muted); margin-bottom: 12px; line-height: 1.5; }
+    .input-row { display: flex; gap: 8px; }
+    .input-field {
+      flex: 1;
+      background: var(--surface2);
+      border: 1px solid #2a4a2d;
+      border-radius: 8px;
+      padding: 10px 12px;
+      color: var(--text);
+      font-size: 13px;
+      outline: none;
+    }
+    .input-field:focus { border-color: var(--green-dim); }
+    .btn-connect {
+      padding: 10px 16px;
+      background: var(--green);
+      color: #0a1a0b;
+      border: none;
+      border-radius: 8px;
+      font-weight: 700;
+      font-size: 13px;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .btn-connect:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    /* ── Log feed ─────────────────────────────────────────────────── */
+    .log-box {
+      background: #0a150b;
+      border: 1px solid #1a3a1d;
+      border-radius: 10px;
+      padding: 12px 14px;
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+      color: var(--green-dim);
+      max-height: 180px;
+      overflow-y: auto;
+      line-height: 1.6;
+    }
+    .log-box .log-ts { color: var(--text-muted); }
+    .log-box .log-err { color: var(--red); }
+    .log-box .log-warn { color: var(--yellow); }
+
+    /* ── Last updated ─────────────────────────────────────────────── */
+    .last-update { font-size: 11px; color: var(--text-muted); text-align: center; margin-top: 20px; }
+
+    /* ── Spinner ──────────────────────────────────────────────────── */
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinner {
+      display: inline-block;
+      width: 14px; height: 14px;
+      border: 2px solid #2a4a2d;
+      border-top-color: var(--green);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      vertical-align: middle;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">AGRO<span>SMART</span></div>
+  <div class="mqtt-badge">
+    <div class="dot" id="mqttDot"></div>
+    <span id="mqttLabel">Desconectado</span>
+  </div>
+</header>
+
+<main>
+
+  <!-- Config de conexão com o backend -->
+  <p class="section-title">Configuração</p>
+  <div class="config-card">
+    <p>Endereço do backend AgroSmart (ex: <code>http://localhost:8000</code>). Em produção, use o IP da sua máquina na rede local.</p>
+    <div class="input-row">
+      <input class="input-field" id="apiUrl" type="text" value="http://localhost:8000" placeholder="http://localhost:8000" />
+      <button class="btn-connect" id="btnConnect" onclick="conectar()">Conectar</button>
+    </div>
+  </div>
+
+  <!-- Leituras dos sensores -->
+  <p class="section-title">Sensores em Tempo Real</p>
+  <div class="cards-row">
+    <div class="sensor-card">
+      <div class="sensor-icon">🌱</div>
+      <div class="sensor-label">Umidade do Solo</div>
+      <div class="sensor-value" id="soloVal">--</div>
+      <div class="sensor-unit">%</div>
+      <div class="gauge-track"><div class="gauge-fill" id="soloGauge"></div></div>
+    </div>
+    <div class="sensor-card">
+      <div class="sensor-icon">🌡️</div>
+      <div class="sensor-label">Temperatura</div>
+      <div class="sensor-value" id="tempVal">--</div>
+      <div class="sensor-unit">°C</div>
+      <div class="gauge-track"><div class="gauge-fill" id="tempGauge" style="background:#fbbf24"></div></div>
+      <div class="sensor-source" id="tempFonte">Fonte: API clima</div>
+      <select class="source-select" id="tempSource" onchange="alterarFonteTemperatura()">
+        <option value="api" selected>API clima</option>
+        <option value="dht22">DHT22 local</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- Previsão climática -->
+  <p class="section-title">Clima (OpenWeatherMap)</p>
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <div>
+        <div style="font-size:13px;color:var(--text-muted);margin-bottom:4px">Previsão 24h</div>
+        <div style="font-size:22px;font-weight:700" id="climaDesc">--</div>
+        <div style="font-size:13px;color:var(--text-muted);margin-top:4px" id="climaTemp"></div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px">Prob. Chuva</div>
+        <div style="font-size:28px;font-weight:800;color:var(--green)" id="climaProb">--%</div>
+        <div style="font-size:12px;margin-top:4px" id="climaChuva">--</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Decisão preditiva -->
+  <p class="section-title">Decisão Preditiva</p>
+  <div class="decision-card waiting" id="decisionCard">
+    <div class="decision-icon" id="decisionIcon">⏳</div>
+    <div>
+      <div class="decision-title" id="decisionTitle">Aguardando dados…</div>
+      <div class="decision-text" id="decisionText">Conecte ao backend para receber a análise.</div>
+    </div>
+  </div>
+
+  <!-- Controle da Bomba -->
+  <p class="section-title">Controle da Bomba</p>
+  <div class="pump-card">
+    <div class="pump-header">
+      <div>
+        <div style="font-size:13px;color:var(--text-muted)">Relé / Válvula</div>
+        <div class="pump-status">
+          <div class="pump-dot" id="pumpDot"></div>
+          <span id="pumpStatusLabel">Desconhecido</span>
+        </div>
+      </div>
+      <div style="font-size:28px">💧</div>
+    </div>
+    <div class="pump-buttons">
+      <button class="btn btn-on" id="btnOn" onclick="controlarBomba('LIGAR')" disabled>▶ LIGAR</button>
+      <button class="btn btn-off" id="btnOff" onclick="controlarBomba('DESLIGAR')" disabled>■ DESLIGAR</button>
+    </div>
+  </div>
+
+  <!-- Modo de operação -->
+  <p class="section-title">Modo de Operação</p>
+  <div class="mode-card">
+    <div class="toggle-row">
+      <div class="toggle-label">
+        <strong id="modeLabel">Manual</strong>
+        <span id="modeDesc">Controle direto pelo app</span>
+      </div>
+      <label class="toggle">
+        <input type="checkbox" id="modeToggle" onchange="alternarModo()" />
+        <span class="slider"></span>
+      </label>
+    </div>
+  </div>
+
+  <!-- Log de eventos -->
+  <p class="section-title">Log de Eventos</p>
+  <div class="log-box" id="logBox">
+    <span class="log-ts">[--:--:--]</span> Sistema iniciado. Configure o endereço do backend acima.<br>
+  </div>
+
+  <div class="last-update">Última atualização: <span id="lastUpdate">--</span></div>
+
+</main>
+
+<script>
+  // ── Estado do App ──────────────────────────────────────────────────────────
+  let apiBase     = "http://localhost:8000";
+  let conectado   = false;
+  let modoAuto    = false;
+  let pollTimer   = null;
+  let fonteTemperatura = localStorage.getItem("agrosmart_temp_source") || "api";
+  let ultimaTelemetria = null;
+  let ultimoClima      = null;
+  let ultimoComandoAuto = null;
+
+  document.getElementById("tempSource").value = fonteTemperatura;
+
+  // ── Utilitários ───────────────────────────────────────────────────────────
+  function log(msg, tipo = "") {
+    const box = document.getElementById("logBox");
+    const ts  = new Date().toLocaleTimeString("pt-BR");
+    const cls = tipo === "err" ? "log-err" : tipo === "warn" ? "log-warn" : "";
+    box.innerHTML += `<span class="log-ts">[${ts}]</span> <span class="${cls}">${msg}</span><br>`;
+    box.scrollTop = box.scrollHeight;
+  }
+
+  function setMqttStatus(online) {
+    document.getElementById("mqttDot").className   = "dot" + (online ? " online" : "");
+    document.getElementById("mqttLabel").textContent = online ? "Online" : "Offline";
+  }
+
+  function setSoloGauge(v) {
+    const pct   = Math.min(Math.max(v, 0), 100);
+    const fill  = document.getElementById("soloGauge");
+    const val   = document.getElementById("soloVal");
+    fill.style.width = pct + "%";
+    fill.style.background = pct < 30 ? "#f87171" : pct < 50 ? "#fbbf24" : "#4ade80";
+    val.className  = "sensor-value" + (pct < 30 ? " crit" : pct < 50 ? " warn" : "");
+    val.textContent = pct.toFixed(0);
+  }
+
+  function setTempGauge(v) {
+    if (v === null || v === undefined || Number.isNaN(Number(v))) return;
+    const pct  = Math.min(Math.max((v / 50) * 100, 0), 100);
+    document.getElementById("tempGauge").style.width = pct + "%";
+    document.getElementById("tempVal").textContent   = Number(v).toFixed(1);
+  }
+
+  function atualizarTemperaturaExibida() {
+    if (fonteTemperatura === "dht22") {
+      setTempGauge(ultimaTelemetria?.temperatura);
+      document.getElementById("tempFonte").textContent = "Fonte: DHT22 local";
+      return;
+    }
+
+    setTempGauge(ultimoClima?.temperatura_atual);
+    document.getElementById("tempFonte").textContent = "Fonte: API clima";
+  }
+
+  function alterarFonteTemperatura() {
+    fonteTemperatura = document.getElementById("tempSource").value;
+    localStorage.setItem("agrosmart_temp_source", fonteTemperatura);
+    atualizarTemperaturaExibida();
+    log(`Temperatura exibida agora vem de: ${fonteTemperatura === "api" ? "API clima" : "DHT22 local"}`);
+  }
+
+  function setPumpStatus(status) {
+    const dot   = document.getElementById("pumpDot");
+    const label = document.getElementById("pumpStatusLabel");
+    if (status === "BOMBA_LIGADA") {
+      dot.className     = "pump-dot on";
+      label.textContent = "Ligada";
+    } else if (status === "BOMBA_DESLIGADA") {
+      dot.className     = "pump-dot off";
+      label.textContent = "Desligada";
+    } else {
+      dot.className     = "pump-dot";
+      label.textContent = "Desconhecida";
+    }
+  }
+
+  function setDecision(dec) {
+    const card  = document.getElementById("decisionCard");
+    const icon  = document.getElementById("decisionIcon");
+    const title = document.getElementById("decisionTitle");
+    const text  = document.getElementById("decisionText");
+
+    card.className = "decision-card ";
+    switch (dec.decisao) {
+      case "IRRIGAR":
+        card.className += "irrigar";
+        icon.textContent = "💧";
+        title.textContent = "IRRIGAR AGORA";
+        break;
+      case "AGUARDAR":
+        card.className += "aguardar";
+        icon.textContent = "⛅";
+        title.textContent = "AGUARDAR — Chuva prevista";
+        break;
+      case "SOLO_ADEQUADO":
+        card.className += "ok";
+        icon.textContent = "✅";
+        title.textContent = "Solo Adequado";
+        break;
+      default:
+        card.className += "waiting";
+        icon.textContent = "⏳";
+        title.textContent = "Aguardando dados…";
+    }
+    text.textContent = dec.motivo || "";
+  }
+
+  // ── API calls ──────────────────────────────────────────────────────────────
+  async function fetchJSON(path) {
+    const r = await fetch(apiBase + path);
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    return r.json();
+  }
+
+  async function postJSON(path, body) {
+    const r = await fetch(apiBase + path, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (!r.ok) {
+      const err = await r.json().catch(() => ({}));
+      throw new Error(err.detail || `HTTP ${r.status}`);
+    }
+    return r.json();
+  }
+
+  // ── Conectar ao backend ────────────────────────────────────────────────────
+  async function conectar() {
+    apiBase = document.getElementById("apiUrl").value.replace(/\/$/, "");
+    const btn = document.getElementById("btnConnect");
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span>';
+    log(`Tentando conectar em ${apiBase}…`);
+
+    try {
+      const data = await fetchJSON("/");
+      conectado = true;
+      setMqttStatus(true);
+      log(`Conectado! Versão da API: ${data.versao}`);
+      document.getElementById("btnOn").disabled  = false;
+      document.getElementById("btnOff").disabled = false;
+      btn.textContent = "✓ Conectado";
+      btn.style.background = "#22c55e";
+      iniciarPolling();
+    } catch (e) {
+      log(`Falha ao conectar: ${e.message}`, "err");
+      btn.disabled    = false;
+      btn.textContent = "Conectar";
+      setMqttStatus(false);
+    }
+  }
+
+  // ── Polling de dados (a cada 5s) ───────────────────────────────────────────
+  function iniciarPolling() {
+    atualizarDados();
+    if (pollTimer) clearInterval(pollTimer);
+    pollTimer = setInterval(atualizarDados, 5000);
+  }
+
+  async function atualizarDados() {
+    if (!conectado) return;
+    try {
+      // Telemetria
+      const tele = await fetchJSON("/telemetria");
+      ultimaTelemetria = tele;
+      setMqttStatus(tele.mqtt_conectado);
+      if (tele.umidade_solo !== null) setSoloGauge(tele.umidade_solo);
+      setPumpStatus(tele.status_bomba);
+      if (tele.ultima_atualizacao) {
+        document.getElementById("lastUpdate").textContent =
+          new Date(tele.ultima_atualizacao).toLocaleTimeString("pt-BR");
+      }
+
+      // Clima
+      const clima = await fetchJSON("/clima");
+      ultimoClima = clima;
+      document.getElementById("climaDesc").textContent  = clima.descricao || "--";
+      document.getElementById("climaTemp").textContent  = clima.temperatura_atual
+        ? `${clima.temperatura_atual.toFixed(1)}°C em ${clima.cidade}` : "";
+      document.getElementById("climaProb").textContent  =
+        `${Math.round((clima.probabilidade_chuva || 0) * 100)}%`;
+      document.getElementById("climaChuva").textContent =
+        clima.vai_chover_24h ? "🌧️ Chuva prevista" : "☀️ Sem chuva";
+      atualizarTemperaturaExibida();
+
+      // Decisão
+      const dec = await fetchJSON("/decisao");
+      setDecision(dec);
+
+      // Auto-mode: segue a ação sugerida pela lógica preditiva
+      if (
+        modoAuto &&
+        (dec.acao_sugerida === "LIGAR" || dec.acao_sugerida === "DESLIGAR") &&
+        dec.acao_sugerida !== ultimoComandoAuto
+      ) {
+        await controlarBomba(dec.acao_sugerida, true);
+        ultimoComandoAuto = dec.acao_sugerida;
+      }
+
+    } catch (e) {
+      log(`Erro ao atualizar dados: ${e.message}`, "warn");
+    }
+  }
+
+  // ── Controle da bomba ──────────────────────────────────────────────────────
+  async function controlarBomba(cmd, silencioso = false) {
+    try {
+      const res = await postJSON("/bomba", { comando: cmd });
+      if (!silencioso) log(`Comando enviado: ${cmd} → ${res.mensagem}`);
+    } catch (e) {
+      log(`Erro ao enviar comando ${cmd}: ${e.message}`, "err");
+    }
+  }
+
+  // ── Alternar modo ──────────────────────────────────────────────────────────
+  function alternarModo() {
+    modoAuto = document.getElementById("modeToggle").checked;
+    document.getElementById("modeLabel").textContent  = modoAuto ? "Automático (Preditivo)" : "Manual";
+    document.getElementById("modeDesc").textContent   = modoAuto
+      ? "Sistema decide com base nos sensores e clima"
+      : "Controle direto pelo app";
+    document.getElementById("btnOn").disabled  = modoAuto || !conectado;
+    document.getElementById("btnOff").disabled = modoAuto || !conectado;
+    log(`Modo alterado para: ${modoAuto ? "AUTOMÁTICO" : "MANUAL"}`);
+    ultimoComandoAuto = null;
+
+    if (conectado && modoAuto) {
+      atualizarDados();
+    }
+  }
+</script>
+</body>
+</html>

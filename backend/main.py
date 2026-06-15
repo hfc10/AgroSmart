@@ -20,6 +20,8 @@ import os
 import json
 import asyncio
 import threading
+import time
+import uuid
 from datetime import datetime
 from typing import Optional
 
@@ -37,6 +39,7 @@ OPENWEATHER_API_KEY = os.getenv("OPENWEATHER_API_KEY", "INSIRA_SUA_CHAVE_AQUI")
 MQTT_BROKER         = os.getenv("MQTT_BROKER", "broker.hivemq.com")
 MQTT_PORT           = int(os.getenv("MQTT_PORT", 1883))
 CITY                = os.getenv("CITY", "São Paulo")
+CLIMA_CACHE_TTL_SEG = int(os.getenv("CLIMA_CACHE_TTL_SEG", 600))
 
 # ── Tópicos MQTT (devem coincidir com o firmware do ESP32) ─────────────────────
 TOPIC_SOLO   = "agrosmart/telemetria/solo"
@@ -54,8 +57,14 @@ state: dict = {
     "mqtt_conectado": False,
 }
 
+clima_cache: dict = {
+    "dados": None,
+    "expira_em": 0,
+}
+
 # ── Cliente MQTT (roda em thread separada para não bloquear o servidor) ────────
-_mqtt = mqtt_client.Client(client_id="AgroSmart-Backend", clean_session=True)
+_mqtt_client_id = f"AgroSmart-Backend-{uuid.uuid4().hex[:8]}"
+_mqtt = mqtt_client.Client(client_id=_mqtt_client_id, clean_session=True)
 
 def _on_connect(client, userdata, flags, rc):
     """Callback disparado quando a conexão com o broker é estabelecida."""
@@ -96,18 +105,24 @@ def _on_message(client, userdata, msg):
 def _on_disconnect(client, userdata, rc):
     """Callback de desconexão — registra no estado."""
     state["mqtt_conectado"] = False
-    print(f"[MQTT] Desconectado do broker. Código: {rc}")
+    print(f"[MQTT] Desconectado do broker. Código: {rc}. Tentando reconectar...")
 
 def _start_mqtt_loop():
     """Inicia o cliente MQTT em thread de background."""
     _mqtt.on_connect    = _on_connect
     _mqtt.on_message    = _on_message
     _mqtt.on_disconnect = _on_disconnect
-    try:
-        _mqtt.connect(MQTT_BROKER, MQTT_PORT, keepalive=60)
-        _mqtt.loop_forever()   # Bloqueia a thread — ok pois está em background
-    except Exception as e:
-        print(f"[MQTT] Erro ao conectar: {e}")
+    _mqtt.reconnect_delay_set(min_delay=1, max_delay=30)
+
+    while True:
+        try:
+            print(f"[MQTT] Conectando como {_mqtt_client_id} em {MQTT_BROKER}:{MQTT_PORT}...")
+            _mqtt.connect(MQTT_BROKER, MQTT_PORT, keepalive=60)
+            _mqtt.loop_forever(retry_first_connection=True)
+        except Exception as e:
+            state["mqtt_conectado"] = False
+            print(f"[MQTT] Erro ao conectar: {e}. Nova tentativa em 5 segundos.")
+            time.sleep(5)
 
 # ── FastAPI App ────────────────────────────────────────────────────────────────
 app = FastAPI(
@@ -165,6 +180,10 @@ async def get_clima():
     próximas 24h na cidade configurada (variável CITY no .env).
     Armazena internamente se vai chover para uso na lógica preditiva.
     """
+    agora = time.time()
+    if clima_cache["dados"] and agora < clima_cache["expira_em"]:
+        return clima_cache["dados"]
+
     if OPENWEATHER_API_KEY == "INSIRA_SUA_CHAVE_AQUI":
         # Modo demo: retorna dados simulados para desenvolvimento
         dados_simulados = {
@@ -176,6 +195,8 @@ async def get_clima():
             "fonte": "SIMULADO — configure OPENWEATHER_API_KEY no .env",
         }
         state["vai_chover"] = dados_simulados["vai_chover_24h"]
+        clima_cache["dados"] = dados_simulados
+        clima_cache["expira_em"] = agora + CLIMA_CACHE_TTL_SEG
         return dados_simulados
 
     url = "https://api.openweathermap.org/data/2.5/forecast"
@@ -210,7 +231,7 @@ async def get_clima():
 
     state["vai_chover"] = vai_chover
 
-    return {
+    dados_clima = {
         "cidade": data["city"]["name"],
         "temperatura_atual": previsoes[0]["main"]["temp"] if previsoes else None,
         "descricao": previsoes[0]["weather"][0]["description"] if previsoes else None,
@@ -218,6 +239,9 @@ async def get_clima():
         "probabilidade_chuva": round(max_prob_chuva, 2),
         "fonte": "OpenWeatherMap",
     }
+    clima_cache["dados"] = dados_clima
+    clima_cache["expira_em"] = agora + CLIMA_CACHE_TTL_SEG
+    return dados_clima
 
 
 @app.post("/bomba", tags=["Controle"])

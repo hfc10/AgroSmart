@@ -37,7 +37,7 @@ DHTesp sensorClima;
 
 // Controle de concorrência de tempo (Evita o uso do delay() no loop principal)
 unsigned long ultimoEnvio = 0;
-const unsigned long INTERVALO_ENVIO_MS = 5000; 
+const unsigned long INTERVALO_ENVIO_MS = 2000; 
 
 // ==========================================
 // FUNÇÕES DE INFRAESTRUTURA

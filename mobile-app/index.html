@@ -576,7 +576,7 @@
   function iniciarPolling() {
     atualizarDados();
     if (pollTimer) clearInterval(pollTimer);
-    pollTimer = setInterval(atualizarDados, 5000);
+    pollTimer = setInterval(atualizarDados, 2000);
   }
 
   async function atualizarDados() {

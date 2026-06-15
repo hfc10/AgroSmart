@@ -78,7 +78,8 @@ AgroSmart/
 
 ### 1. Simulação Wokwi (ESP32)
 
-1. Acesse [wokwi.com](https://wokwi.com) e importe o projeto (ou use o link da simulação no repositório)
+1. Acesse [wokwi.com](https://wokwi.com) e importe o projeto (ou use o link da simulação no repositório) 
+#  https://wokwi.com/projects/466022879727959041     --- Link do projeto
 2. Compile e execute — o ESP32 conecta automaticamente ao broker HiveMQ público
 3. Ajuste o potenciômetro para simular a umidade do solo (0–100%)
 

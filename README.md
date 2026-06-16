@@ -20,7 +20,7 @@ AgroSmart/
 ├── backend/
 │   ├── main.py           # API FastAPI — bridge HTTP↔MQTT + consulta clima
 │   ├── requirements.txt  # Dependências Python
-│   └── .env.example      # Modelo de variáveis de ambiente
+│   └── .env.example      # Modelo de variáveis de ambiente (copiar para .env)
 ├── mobile-app/
 │   └── index.html        # App mobile web — painel de controle MQTT
 ├── .gitignore
@@ -35,30 +35,35 @@ AgroSmart/
 ## 🏗️ Arquitetura do Sistema
 
 ```
-┌─────────────────┐        MQTT (Pub)         ┌──────────────────┐
-│  ESP32 (Wokwi)  │ ────────────────────────► │                  │
-│                 │   agrosmart/telemetria/*   │  HiveMQ Cloud /  │
-│  • DHT22        │                           │  Mosquitto Broker │
-│  • Higrômetro   │ ◄──────────────────────── │                  │
-│  • LED (Bomba)  │       MQTT (Sub)          └────────┬─────────┘
-└─────────────────┘   agrosmart/comando/bomba          │
-                                                       │ MQTT (Sub/Pub)
-                                              ┌────────▼─────────┐
-                                              │  Backend FastAPI  │
-                                              │  (Python)         │
-                                              │  • GET /telemetria│
-                                              │  • GET /clima     │ ◄── OpenWeatherMap
-                                              │  • GET /decisao   │
-                                              │  • POST /bomba    │
-                                              └────────┬─────────┘
-                                                       │ HTTP (REST)
-                                              ┌────────▼─────────┐
-                                              │  App Mobile Web   │
-                                              │  (HTML/JS)        │
-                                              │  • Painel sensores│
-                                              │  • Controle bomba │
-                                              │  • Modo auto/manual│
-                                              └──────────────────┘
+┌─────────────────┐      MQTT (Pub) a cada 2s     ┌──────────────────┐
+│  ESP32 (Wokwi)  │ ──────────────────────────►   │                  │
+│                 │   agrosmart/telemetria/solo     │  HiveMQ Public   │
+│  • DHT22        │   agrosmart/telemetria/temp     │  Broker          │
+│  • Potenciômetro│ ◄─────────────────────────── │  broker.hivemq   │
+│  • LED (Bomba)  │      MQTT (Sub) comandos        │  .com:1883       │
+└─────────────────┘   agrosmart/comando/bomba       └────────┬─────────┘
+                                                             │ MQTT (Sub/Pub)
+                                                    ┌────────▼─────────┐
+                                                    │  Backend FastAPI  │
+                                                    │  Python           │
+                                                    │                   │
+                                                    │  GET  /           │
+                                                    │  GET  /telemetria │
+                                                    │  GET  /clima ─────┼──► OpenWeatherMap
+                                                    │  GET  /decisao    │
+                                                    │  POST /bomba      │
+                                                    └────────┬─────────┘
+                                                             │ HTTP REST
+                                                    ┌────────▼─────────┐
+                                                    │  App Mobile Web   │
+                                                    │  HTML5/CSS3/JS    │
+                                                    │                   │
+                                                    │  • Gauges sensores│
+                                                    │  • Previsão clima │
+                                                    │  • Decisão prediti│
+                                                    │  • Controle bomba │
+                                                    │  • Modo Auto/Manual│
+                                                    └──────────────────┘
 ```
 
 ---
@@ -67,10 +72,12 @@ AgroSmart/
 
 | Tópico | Direção | Payload | Descrição |
 |---|---|---|---|
-| `agrosmart/telemetria/solo` | ESP32 → Broker | `"42"` (%) | Umidade do solo simulada |
-| `agrosmart/telemetria/temperatura` | ESP32 → Broker | `"24.5"` (°C) | Temperatura do DHT22 |
+| `agrosmart/telemetria/solo` | ESP32 → Broker | `"42"` (%) | Umidade do solo — potenciômetro mapeado 0–100% |
+| `agrosmart/telemetria/temperatura` | ESP32 → Broker | `"24.5"` (°C) | Temperatura lida pelo DHT22 |
 | `agrosmart/comando/bomba` | App/Backend → ESP32 | `"LIGAR"` / `"DESLIGAR"` | Controle remoto da bomba |
-| `agrosmart/status/bomba` | ESP32 → Broker | `"BOMBA_LIGADA"` / `"BOMBA_DESLIGADA"` | Confirmação do estado |
+| `agrosmart/status/bomba` | ESP32 → Broker | `"BOMBA_LIGADA"` / `"BOMBA_DESLIGADA"` | Confirmação do estado do relé |
+
+> O ESP32 publica telemetria a cada **2 segundos**. O app mobile consome os dados via backend a cada **2 segundos**.
 
 ---
 
@@ -78,52 +85,67 @@ AgroSmart/
 
 ### 1. Simulação Wokwi (ESP32)
 
-1. Acesse [wokwi.com](https://wokwi.com) e importe o projeto (ou use o link da simulação no repositório) 
-#  https://wokwi.com/projects/466022879727959041     --- Link do projeto
-2. Compile e execute — o ESP32 conecta automaticamente ao broker HiveMQ público
-3. Ajuste o potenciômetro para simular a umidade do solo (0–100%)
+1. Acesse o projeto diretamente: **https://wokwi.com/projects/466022879727959041**
+2. Clique em ▶ para iniciar — o ESP32 conecta automaticamente ao broker HiveMQ
+3. Ajuste o **potenciômetro** para simular a umidade do solo (0–100%)
+4. Monitore o **Serial Monitor** para ver os logs de telemetria e conexão MQTT
 
 ### 2. Backend FastAPI
 
 ```bash
 cd backend
+
+# Instalar dependências
 pip install -r requirements.txt
+
+# Configurar variáveis de ambiente
 cp .env.example .env
-# Edite o .env e insira sua chave da OpenWeatherMap (gratuita em openweathermap.org)
+# Edite o .env — sem a chave OpenWeather o backend roda em modo demo
+
+# Subir o servidor
 uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-Documentação interativa disponível em: **http://localhost:8000/docs**
+Documentação interativa dos endpoints: **http://localhost:8000/docs**
 
 ### 3. App Mobile
 
 Abra `mobile-app/index.html` no navegador do celular ou computador.
 
-- Configure o endereço do backend (ex: `http://192.168.x.x:8000` na mesma rede Wi-Fi)
-- Clique em **Conectar** — o app atualiza os dados a cada 5 segundos
+1. No campo de endereço, coloque `http://localhost:8000`
+2. Clique em **Conectar**
+3. Os dados atualizam automaticamente a cada 2 segundos
 
-> **Dica:** Para testar no celular, use o IP local da máquina em vez de `localhost`.
+> **Testando no celular:** use o IP local da sua máquina (ex: `http://192.168.1.x:8000`) em vez de `localhost`.
 
----
+### 4. Monitorar via HiveMQ (opcional)
 
-## 📱 Funcionalidades do App Mobile
-
-- **Leituras em tempo real** — umidade do solo e temperatura com gauges coloridos
-- **Previsão climática** — probabilidade de chuva nas próximas 24h via OpenWeatherMap
-- **Decisão preditiva** — recomenda IRRIGAR, AGUARDAR ou informa solo adequado
-- **Controle da bomba** — botões LIGAR/DESLIGAR enviam comandos via MQTT/backend
-- **Modo Automático** — ativa a bomba automaticamente pela lógica preditiva
-- **Log de eventos** — registro em tempo real de todas as ações
+Acesse [broker.hivemq.com](https://broker.hivemq.com) → **Connect** → assine o tópico `agrosmart/#` para ver todas as mensagens em tempo real.
 
 ---
 
 ## 🧠 Lógica Preditiva
 
+O backend cruza os dados do sensor de solo com a previsão climática antes de decidir:
+
 ```
-Solo < 30% E sem chuva prevista  →  IRRIGAR  (aciona bomba)
-Solo < 30% E chuva prevista      →  AGUARDAR (economiza água)
-Solo >= 30%                      →  SOLO ADEQUADO
+Solo < 30%  E  sem chuva prevista  →  IRRIGAR   (aciona bomba)
+Solo < 30%  E  chuva prevista      →  AGUARDAR  (economiza água)
+Solo >= 30%                        →  SOLO ADEQUADO
 ```
+
+No **Modo Automático** do app, o sistema executa o comando sugerido sem intervenção manual.
+
+---
+
+## 📱 Funcionalidades do App Mobile
+
+- **Gauges em tempo real** — umidade do solo e temperatura com cores de alerta (verde/amarelo/vermelho)
+- **Previsão climática** — probabilidade de chuva nas próximas 24h via OpenWeatherMap
+- **Decisão preditiva** — card visual com resultado IRRIGAR / AGUARDAR / SOLO ADEQUADO
+- **Controle manual da bomba** — botões LIGAR/DESLIGAR publicam direto no broker via backend
+- **Modo Automático** — liga/desliga a bomba automaticamente pela lógica preditiva (sem repetir comandos desnecessários)
+- **Log de eventos** — registro em tempo real de todas as ações e comunicações
 
 ---
 
@@ -131,11 +153,11 @@ Solo >= 30%                      →  SOLO ADEQUADO
 
 | Método | Rota | Descrição |
 |---|---|---|
-| `GET` | `/` | Health-check |
-| `GET` | `/telemetria` | Últimas leituras dos sensores |
-| `GET` | `/clima` | Previsão de chuva (OpenWeatherMap) |
-| `GET` | `/decisao` | Decisão preditiva |
-| `POST` | `/bomba` | Envia comando `LIGAR`/`DESLIGAR` |
+| `GET` | `/` | Health-check — confirma que o servidor está online |
+| `GET` | `/telemetria` | Últimas leituras dos sensores recebidas via MQTT |
+| `GET` | `/clima` | Previsão de chuva 24h (cache de 10min por padrão) |
+| `GET` | `/decisao` | Decisão preditiva cruzando solo + clima |
+| `POST` | `/bomba` | Envia `{"comando": "LIGAR"}` ou `{"comando": "DESLIGAR"}` |
 
 ---
 
@@ -145,17 +167,27 @@ Solo >= 30%                      →  SOLO ADEQUADO
 |---|---|
 | Microcontrolador | ESP32 (simulado no Wokwi) |
 | Firmware | C++ / Arduino Framework (PlatformIO) |
-| Protocolo IoT | MQTT (broker HiveMQ público) |
-| Backend | Python / FastAPI / Paho-MQTT |
+| Protocolo IoT | MQTT — broker público HiveMQ |
+| Backend | Python 3 / FastAPI / Paho-MQTT / HTTPX |
 | API Climática | OpenWeatherMap (plano gratuito) |
 | App Mobile | HTML5 / CSS3 / JavaScript puro |
 | Simulação | Wokwi Online Simulator |
 
 ---
 
-## 📦 Dependências do Firmware
+## 📦 Dependências do Firmware (PlatformIO)
 
 ```ini
-knolleary/PubSubClient              — Cliente MQTT para Arduino
-beegee-tokyo/DHT sensor library for ESPx — Driver do DHT22
+knolleary/PubSubClient              — Cliente MQTT para ESP32
+beegee-tokyo/DHT sensor library for ESPx — Driver do sensor DHT22
+```
+
+## 📦 Dependências do Backend (Python)
+
+```
+fastapi       — Framework da API REST
+uvicorn       — Servidor ASGI
+httpx         — Requisições HTTP assíncronas (OpenWeatherMap)
+paho-mqtt     — Cliente MQTT em background
+python-dotenv — Leitura do arquivo .env
 ```

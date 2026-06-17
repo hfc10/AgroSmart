@@ -1,6 +1,5 @@
 # 🌱 AgroSmart — Irrigação Inteligente: Simulação IoT e Lógica Preditiva
 
-
 ---
 
 ## 📋 Sobre o Projeto
@@ -70,12 +69,12 @@ AgroSmart/
 
 ## 🔧 Tópicos MQTT
 
-| Tópico | Direção | Payload | Descrição |
-|---|---|---|---|
-| `agrosmart/telemetria/solo` | ESP32 → Broker | `"42"` (%) | Umidade do solo — potenciômetro mapeado 0–100% |
-| `agrosmart/telemetria/temperatura` | ESP32 → Broker | `"24.5"` (°C) | Temperatura lida pelo DHT22 |
-| `agrosmart/comando/bomba` | App/Backend → ESP32 | `"LIGAR"` / `"DESLIGAR"` | Controle remoto da bomba |
-| `agrosmart/status/bomba` | ESP32 → Broker | `"BOMBA_LIGADA"` / `"BOMBA_DESLIGADA"` | Confirmação do estado do relé |
+| Tópico                              | Direção            | Payload                                    | Descrição                                       |
+| ------------------------------------ | -------------------- | ------------------------------------------ | ------------------------------------------------- |
+| `agrosmart/telemetria/solo`        | ESP32 → Broker      | `"42"` (%)                               | Umidade do solo — potenciômetro mapeado 0–100% |
+| `agrosmart/telemetria/temperatura` | ESP32 → Broker      | `"24.5"` (°C)                           | Temperatura lida pelo DHT22                       |
+| `agrosmart/comando/bomba`          | App/Backend → ESP32 | `"LIGAR"` / `"DESLIGAR"`               | Controle remoto da bomba                          |
+| `agrosmart/status/bomba`           | ESP32 → Broker      | `"BOMBA_LIGADA"` / `"BOMBA_DESLIGADA"` | Confirmação do estado do relé                  |
 
 > O ESP32 publica telemetria a cada **2 segundos**. O app mobile consome os dados via backend a cada **2 segundos**.
 
@@ -104,6 +103,10 @@ cp .env.example .env
 
 # Subir o servidor
 uvicorn main:app --reload --host 0.0.0.0 --port 8000
+
+# Subir um servidor http pra usar o app/html no celular
+cd mobile-app
+python -m http.server 8080
 ```
 
 Documentação interativa dos endpoints: **http://localhost:8000/docs**
@@ -151,27 +154,27 @@ No **Modo Automático** do app, o sistema executa o comando sugerido sem interve
 
 ## 🌐 Endpoints da API
 
-| Método | Rota | Descrição |
-|---|---|---|
-| `GET` | `/` | Health-check — confirma que o servidor está online |
-| `GET` | `/telemetria` | Últimas leituras dos sensores recebidas via MQTT |
-| `GET` | `/clima` | Previsão de chuva 24h (cache de 10min por padrão) |
-| `GET` | `/decisao` | Decisão preditiva cruzando solo + clima |
-| `POST` | `/bomba` | Envia `{"comando": "LIGAR"}` ou `{"comando": "DESLIGAR"}` |
+| Método  | Rota            | Descrição                                                   |
+| -------- | --------------- | ------------------------------------------------------------- |
+| `GET`  | `/`           | Health-check — confirma que o servidor está online          |
+| `GET`  | `/telemetria` | Últimas leituras dos sensores recebidas via MQTT             |
+| `GET`  | `/clima`      | Previsão de chuva 24h (cache de 10min por padrão)           |
+| `GET`  | `/decisao`    | Decisão preditiva cruzando solo + clima                      |
+| `POST` | `/bomba`      | Envia `{"comando": "LIGAR"}` ou `{"comando": "DESLIGAR"}` |
 
 ---
 
 ## 🛠️ Tecnologias Utilizadas
 
-| Camada | Tecnologia |
-|---|---|
-| Microcontrolador | ESP32 (simulado no Wokwi) |
-| Firmware | C++ / Arduino Framework (PlatformIO) |
-| Protocolo IoT | MQTT — broker público HiveMQ |
-| Backend | Python 3 / FastAPI / Paho-MQTT / HTTPX |
-| API Climática | OpenWeatherMap (plano gratuito) |
-| App Mobile | HTML5 / CSS3 / JavaScript puro |
-| Simulação | Wokwi Online Simulator |
+| Camada           | Tecnologia                             |
+| ---------------- | -------------------------------------- |
+| Microcontrolador | ESP32 (simulado no Wokwi)              |
+| Firmware         | C++ / Arduino Framework (PlatformIO)   |
+| Protocolo IoT    | MQTT — broker público HiveMQ         |
+| Backend          | Python 3 / FastAPI / Paho-MQTT / HTTPX |
+| API Climática   | OpenWeatherMap (plano gratuito)        |
+| App Mobile       | HTML5 / CSS3 / JavaScript puro         |
+| Simulação      | Wokwi Online Simulator                 |
 
 ---
 
